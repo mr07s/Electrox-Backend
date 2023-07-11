@@ -34,7 +34,7 @@ photo:{
     contentType:String,
 },
 shipping:{
-    type:Boolean
+    type:Boolean,
 }
 
 
