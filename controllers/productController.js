@@ -123,7 +123,6 @@ export const deleteProductController = async (req, res) => {
   }
 };
 
-
 export const updateProductController = async (req, res) => {
   try {
     const { name, description, price, category, quantity, shipping } =
@@ -172,29 +171,25 @@ export const updateProductController = async (req, res) => {
   }
 };
 
-
-
 //filters
-export const productFiltersController =async(req,res)=>{
-try{
-const {check,radio} =req.body;
-let args ={};
-if(check.length > 0){
-  args.category =check;
-}
-if(radio.length ){
-  //gte greater then equalto lte =less then equalto
-  args.price ={$gte :radio[0],$lte:radio[1]};
-}
-const products =await productModel.find(args)
+export const productFiltersController = async (req, res) => {
+  try {
+    const { check, radio } = req.body;
+    let args = {};
+    if (check.length > 0) {
+      args.category = check;
+    }
+    if (radio.length) {
+      //gte greater then equalto lte =less then equalto
+      args.price = { $gte: radio[0], $lte: radio[1] };
+    }
+    const products = await productModel.find(args);
 
-res.status(200).send({
-  success:true,
-  products
-})
-
-}
-catch (error) {
+    res.status(200).send({
+      success: true,
+      products,
+    });
+  } catch (error) {
     console.log(error);
     res.status(400).send({
       success: false,
@@ -202,6 +197,80 @@ catch (error) {
       error,
     });
   }
+};
 
+//Product Count
+export const productCountController = async (req, res) => {
+  try {
+    const totalProducts = await productModel.find({}).estimatedDocumentCount();
+    res.status(200).send({
+      succes: true,
+      totalProducts,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({
+      success: false,
+      message: "Error in product count",
+      error,
+    });
+  }
+};
+// Product List Container
+
+export const productListController = async (req, res) => {
+  try {
+    const perPage = 6;
+    const page = req.params.page ? req.params.page : 1;
+    const productlist = await productModel
+      .find({})
+      .select("-photo")
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .sort({ createdAt: -1 });
+
+     res.status(200).send({
+      sucess:true,
+      productlist
+     })
+    
+
+
+
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({
+      success: false,
+      message: "error in per page ctrl",
+      error,
+    });
+  }
+};
+
+
+export const searchProductController=async(req,res)=>{
+try {
+  const {keyword}=req.params
+  const result =await productModel.find({
+    $or:[
+        {name:{$regex :keyword,$options:"i"}},
+        {description:{$regex :keyword,$options:"i"}}
+    ]
+  }).select("-photo")
+console.log({result})
+res.json({result});
+
+
+} catch (error) {
+  console.log(error)
+  res.status(400).message({
+    success:false,
+    message:'Error in product controller',
+    error
+  })
+}
 
 }
+
+
+
