@@ -1,4 +1,5 @@
 import userModel from "../models/userModel.js";
+import orderModel from "../models/orderModel.js";
 import {comparePassword, hashPassword} from './../helpers/authHelper.js'
 import  JWT  from "jsonwebtoken";
 
@@ -194,12 +195,78 @@ res.status(200).send({
 
 
 
+export const updateProfileController =async(req,res)=>{
+
+try {
+  
+const {email,name,address,phone,password} =req.body;
+
+const user = await userModel.findByIdAndUpdate(req.user._id)
+
+if(password && password.length <6){
+  return res.json({error:"Password is required and 6 chaecter long"})
+}
+
+const hashedPassword = password ? await hashPassword(password) : undefined
+
+const updatedUser =await userModel.findByIdAndUpdate(req.user._id,{
+name:name|| user.name,
+password:hashedPassword || user.password,
+phone: phone || user.phone,
+address: address || user.address,
+// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGE1MTRhYjEzMjc4MGMwOGJmOGVjZDIiLCJpYXQiOjE2ODk0MTAzMDQsImV4cCI6MTY5MDAxNTEwNH0.37aP0aaFRIdieGjBceQGUL0vwx3XLsPyyrnpew17Jtw
+},{new:true})
+
+res.status(200).send({
+  success:true,
+  message:'Profile updated Successfully',
+  updatedUser
+})
+
+
+
+} catch (error) {
+  console.log(error);
+  res.status(400).send({
+    success:false,
+    message:"Error while updating Profie",
+    error
+  })
+}
 
 
 
 
 
 
+
+
+
+
+
+}
+
+
+
+
+export const getOrdersController =async(req,res)=>{
+try {
+ console.log(req.user._id)
+  const orders = await orderModel.find({buyer:req.user._id}).populate("products","-photo").populate("buyer","name")
+res.json(orders)
+
+}
+catch (error)
+{
+  console.log(error);
+  res.status(500).send({
+    success:false,
+    message:"Error While geeting orders",
+    error
+  })
+}
+
+}
 
 
 
