@@ -78,14 +78,15 @@ export const loginController = async (req, res) => {
     }
     // check user
     const user = await userModel.findOne({ email });
-    if (!user)
-      res.status(404).send({
+    if (!user) {
+      return res.status(404).send({
         success: false,
         message: "User does not exists please register",
       });
+    }
     const match = await comparePassword(password, user.password);
     if (!match) {
-      return res.status(200).send({
+      return res.status(404).send({
         success: false,
         message: "Invalid Password",
       });
@@ -95,7 +96,7 @@ export const loginController = async (req, res) => {
       expiresIn: "7d",
     });
 
-    res.status(200).send({
+    return res.status(200).send({
       success: true,
       message: "Log In successfully",
       user: {
@@ -109,7 +110,7 @@ export const loginController = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.status(500).send({
+    return res.status(500).send({
       success: false,
       message: "Error in login",
       error,
@@ -226,9 +227,9 @@ export const getAllOrdersController = async (req, res) => {
       .find({})
       .populate("products", "-photo")
       .populate("buyer", "name")
-      .sort({createdAt :"-1"})
+      .sort({ createdAt: "-1" });
     res.json(orders);
-    console.log('Updated Successfully')
+    console.log("Updated Successfully");
   } catch (error) {
     console.log(error);
     res.status(500).send({
@@ -239,32 +240,23 @@ export const getAllOrdersController = async (req, res) => {
   }
 };
 
+export const orderStatusUpdateController = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const orders = await orderModel.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true }
+    );
 
-export const orderStatusUpdateController =async(req,res)=>{
-
-try {
-  
-const {orderId} =req.params
-const {status} =req.body
-const orders = await orderModel.findByIdAndUpdate(orderId,{status},{new:true})
-
-res.json(orders)
-
-
-} catch (error) {
-  console.log(error);
-  res.status(400).send({
-    success:false,
-    message:'While pdating Status',
-    error
-  })
-}
-
-
-
-
-
-
-
-}
-
+    res.json(orders);
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({
+      success: false,
+      message: "While pdating Status",
+      error,
+    });
+  }
+};
