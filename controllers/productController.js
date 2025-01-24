@@ -6,22 +6,16 @@ import braintree from "braintree";
 import dotenv from "dotenv";
 import orderModel from "../models/orderModel.js";
 import { json } from "express";
-
+import NodeCache from "node-cache";
 dotenv.config();
-//Payment gateway 
+//Payment gateway
+const myCache = new NodeCache();
 var gateway = new braintree.BraintreeGateway({
   environment: braintree.Environment.Sandbox,
   merchantId: process.env.BRAINTREE_MERCHANT_ID,
-  publicKey : process.env.BRAINTREE_PUBLIC_KEY,
+  publicKey: process.env.BRAINTREE_PUBLIC_KEY,
   privateKey: process.env.BRAINTREE_PRIVATE_KEY,
 });
-
-
-
-
-
-
-
 
 export const createProductController = async (req, res) => {
   try {
@@ -67,12 +61,19 @@ export const createProductController = async (req, res) => {
 
 export const getProductController = async (req, res) => {
   try {
-    const Allproducts = await productModel
-      .find({})
-      .populate("category")
-      .select("-photo")
-      .limit(12)
-      .sort({ createdAt: -1 });
+    const existCache = myCache.has("products");
+    let Allproducts;
+    if (existCache) {
+      Allproducts = myCache.get("products");
+    } else {
+      Allproducts = await productModel
+        .find({})
+        .populate("category")
+        .select("-photo")
+        .limit(12)
+        .sort({ createdAt: -1 });
+      myCache.set("products", Allproducts);
+    }
     res.status(201).send({
       success: true,
       totalcount: Allproducts.length,
@@ -251,14 +252,10 @@ export const productListController = async (req, res) => {
       .limit(perPage)
       .sort({ createdAt: -1 });
 
-     res.status(200).send({
-      sucess:true,
-      productlist
-     })
-    
-
-
-
+    res.status(200).send({
+      sucess: true,
+      productlist,
+    });
   } catch (error) {
     console.log(error);
     res.status(400).send({
@@ -269,101 +266,78 @@ export const productListController = async (req, res) => {
   }
 };
 
-
-export const searchProductController=async(req,res)=>{
-try {
-  const {keyword}=req.params
-  const result =await productModel.find({
-    $or:[
-        {name:{$regex :keyword,$options:"i"}},
-        {description:{$regex :keyword,$options:"i"}}
-    ]
-  }).select("-photo")
-console.log({result})
-res.json({result});
-
-
-} catch (error) {
-  console.log(error)
-  res.status(400).message({
-    success:false,
-    message:'Error in product controller',
-    error
-  })
-}
-
-}
+export const searchProductController = async (req, res) => {
+  try {
+    const { keyword } = req.params;
+    const result = await productModel
+      .find({
+        $or: [
+          { name: { $regex: keyword, $options: "i" } },
+          { description: { $regex: keyword, $options: "i" } },
+        ],
+      })
+      .select("-photo");
+    console.log({ result });
+    res.json({ result });
+  } catch (error) {
+    console.log(error);
+    res.status(400).message({
+      success: false,
+      message: "Error in product controller",
+      error,
+    });
+  }
+};
 // similar Products
-export const ralatedProductController =async(req,res)=>{
+export const ralatedProductController = async (req, res) => {
+  try {
+    //cid =category Id ,//$ne means remove id /not included
+    const { pid, cid } = req.params;
+    const products = await productModel
+      .find({
+        category: cid,
+        _id: { $ne: pid },
+      })
+      .select("-photo")
+      .limit(3)
+      .populate("category");
 
-try
-{
-  //cid =category Id ,//$ne means remove id /not included
-const {pid,cid} =req.params
-const products = await productModel.find({
-category:cid, 
-_id:{$ne:pid}
+    console.log(products);
+    res.status(200).send({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({
+      success: false,
+      message: "Error while geeting similar Products",
+      error,
+    });
+  }
+};
 
-}).select("-photo").limit(3).populate("category")
-
-;
-console.log(products)
-res.status(200).send({
-  success:true,
-  products
-})
-}
-
-catch (error)
-{
-console.log(error);
-res.status(400).send({
-  success:false,
-  message:'Error while geeting similar Products',
-  error
-})
-}
-}
-
-
-
-export const productCategoryController =async(req,res)=>
-{
-try
-{
-  const category =await categoryModel.findOne({slug:req.params.slug})
-  const products =await productModel.find({category}).select("-photo").populate('category')
-res.status(200).send({
-  success:true,
-  category,
-  products
-})
-} 
-catch (error)
- {
-  console.log(error);
-  res.status(400).send({
-    success:true,
-    message:'Error while getting category',
-    error
-  })  
-
-
-
-}
-
-
-
-
-
-
-}
-
-
-
-
-
-
+export const productCategoryController = async (req, res) => {
+  try {
+    const category = await categoryModel.findOne({ slug: req.params.slug });
+    const products = await productModel
+      .find({ category })
+      .select("-photo")
+      .populate("category");
+    res.status(200).send({
+      success: true,
+      category,
+      products,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({
+      success: true,
+      message: "Error while getting category",
+      error,
+    });
+  }
+};
 
 //payment gateway api
 //token
@@ -385,15 +359,15 @@ export const braintreeTokenController = async (req, res) => {
 export const braintreePaymentController = async (req, res) => {
   try {
     const { nonce, cart } = req.body;
-    console.log(cart)
-    console.log(cart[0].product_id)
-    let products=[];
+    console.log(cart);
+    console.log(cart[0].product_id);
+    let products = [];
     let total = 0;
     cart.map((i) => {
       total += i.product_price;
-      products =[...products,i.product_id]
+      products = [...products, i.product_id];
     });
-    console.log(products)
+    console.log(products);
     let newTransaction = gateway.transaction.sale(
       {
         amount: total,
@@ -409,7 +383,7 @@ export const braintreePaymentController = async (req, res) => {
             payment: result,
             buyer: req.user._id,
           }).save();
-          res.json({ ok: true});
+          res.json({ ok: true });
         } else {
           res.status(500).send(error);
         }
